@@ -1,3 +1,4 @@
+"""softmax是把预测值归一化到总和为1的概率分布的方式，一般和交叉熵损失一起使用，最小化交叉熵损失也就是最大化似然"""
 import torch
 import d2l
 from torch import nn

@@ -1,3 +1,4 @@
+"""使用多层组合成一个网络，网络的中间隐藏层也就是特征的中间表示，若都是线性层，则可以合并为单层网络"""
 import torch
 from torch import nn
 import d2l

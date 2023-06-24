@@ -1,3 +1,4 @@
+"""工具包"""
 import matplotlib
 from matplotlib import pyplot as plt
 import time
@@ -11,6 +12,8 @@ import os
 import tarfile
 import zipfile
 import requests
+from torch import nn
+from torch.nn import functional as F
 
 matplotlib.use("TkAgg")
 
@@ -70,6 +73,10 @@ class Timer:  # @save
 
     def __init__(self):
         self.times = []
+        self.tik = None
+        self.start()
+
+    def start(self):
         self.tik = time.time()
 
     def stop(self):
@@ -400,3 +407,108 @@ def corr2d(X, K):
         for j in range(Y.shape[1]):
             Y[i, j] = (X[i:i + h, j:j + w] * K).sum()
     return Y
+
+
+def evaluate_accuracy_gpu(net, data_iter, device=None):
+    """使⽤GPU计算模型在数据集上的精度"""
+    if isinstance(net, nn.Module):
+        net.eval()  # 设置为评估模式
+    if not device:
+        device = next(iter(net.parameters())).device
+    # 正确预测的数量，总预测的数量
+    metric = Accumulator(2)
+    with torch.no_grad():
+        for X, y in data_iter:
+            if isinstance(X, list):
+                # BERT微调所需的
+                X = [x.to(device) for x in X]
+            else:
+                X = X.to(device)
+            y = y.to(device)
+            metric.add(accuracy(net(X), y), y.numel())
+    return metric[0] / metric[1]
+
+
+def train_ch6(net, train_iter, test_iter, num_epochs, lr, device):
+    """用GPU训练模型(在第六章定义)"""
+
+    def init_weights(m):
+        if type(m) == nn.Linear or type(m) == nn.Conv2d:
+            nn.init.xavier_uniform_(m.weight)
+
+    net.apply(init_weights)
+    print('training on', device)
+    net.to(device)
+    optimizer = torch.optim.SGD(net.parameters(), lr=lr)
+    loss = nn.CrossEntropyLoss()
+    animator = Animator(xlabel='epoch', xlim=[1, num_epochs],
+                        legend=['train loss', 'train acc', 'test acc'])
+    timer, num_batches = Timer(), len(train_iter)
+    train_l, train_acc, test_acc, metric = None, None, None, None
+    for epoch in range(num_epochs):
+        # 训练损失之和，训练准确率之和，样本数
+        metric = Accumulator(3)
+        net.train()
+        for i, (X, y) in enumerate(train_iter):
+            timer.start()
+            optimizer.zero_grad()
+            X, y = X.to(device), y.to(device)
+            y_hat = net(X)
+            l = loss(y_hat, y)
+            l.backward()
+            optimizer.step()
+            with torch.no_grad():
+                metric.add(l * X.shape[0], accuracy(y_hat, y), X.shape[0])
+            timer.stop()
+            train_l = metric[0] / metric[2]
+            train_acc = metric[1] / metric[2]
+            if (i + 1) % (num_batches // 5) == 0 or i == num_batches - 1:
+                animator.add(epoch + (i + 1) / num_batches,
+                             (train_l, train_acc, None))
+        test_acc = evaluate_accuracy_gpu(net, test_iter)
+        animator.add(epoch + 1, (None, None, test_acc))
+        print(f'epoch {epoch} end')
+    print(f'loss {train_l:.3f}, train acc {train_acc:.3f}, '
+          f'test acc {test_acc:.3f}')
+    print(f'{metric[2] * num_epochs / timer.sum():.1f} examples/sec '
+          f'on {str(device)}')
+
+
+def print_net(net, X):
+    def _print_net(_net):
+        nonlocal X
+        for blk in _net:
+            if blk.__class__.__name__ == "Sequential":
+                _print_net(blk)
+                print()
+            else:
+                X = blk(X)
+                print(blk.__class__.__name__, 'output shape:\t', X.shape)
+
+    _print_net(net)
+
+
+class Residual(nn.Module):
+    def __init__(self, input_channels, num_channels,
+                 use_1x1conv=False, strides=1):
+        super().__init__()
+        self.conv1 = nn.Conv2d(input_channels, num_channels,
+                               kernel_size=(3, 3), padding=1, stride=(strides, strides))
+        self.conv2 = nn.Conv2d(num_channels, num_channels,
+                               kernel_size=(3, 3), padding=1)
+        if use_1x1conv:
+            self.conv3 = nn.Conv2d(input_channels, num_channels,
+                                   kernel_size=(1, 1), stride=(strides, strides))
+        else:
+            self.conv3 = None
+        self.bn1 = nn.BatchNorm2d(num_channels)
+        self.bn2 = nn.BatchNorm2d(num_channels)
+
+    def forward(self, X):
+        Y = F.relu(self.bn1(self.conv1(X)))
+        Y = self.bn2(self.conv2(Y))
+        if self.conv3:
+            X = self.conv3(X)
+        # 直接加X，当conv1和conv2权重为0时，残差层输出Y=输入X，不会改变输入
+        Y += X
+        return F.relu(Y)

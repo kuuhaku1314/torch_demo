@@ -1,3 +1,4 @@
+"""开发自己的层要继承nn.Module，一般需要重写__init__和forward方法"""
 import torch
 from torch import nn
 from torch.nn import functional as F

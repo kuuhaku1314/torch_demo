@@ -1,3 +1,4 @@
+"""权重衰减，对损失函数增加一个权重的l2范数惩罚项来正则化，抑制某些权重太大"""
 import torch
 from torch import nn
 import d2l

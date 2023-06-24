@@ -1,3 +1,4 @@
+"""线性回归，回归是一类基本问题，预测输入下输出值的大小，最小化均方损失等同于正态分布下最大似然"""
 import d2l
 import torch
 import random

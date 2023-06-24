@@ -1,3 +1,4 @@
+"""通过dropout进行正则化，随机让部分权重归0，让模型不过度关注某几个权重造成过拟合"""
 import torch
 from torch import nn
 import d2l

@@ -43,8 +43,10 @@ torch.norm(torch.ones((4, 9)))
 torch.log(torch.ones((4, 9)))
 # 取平方根
 torch.sqrt(torch.ones((4, 9)))
-# 拼接tensor
+# 在0维上拼接tensor，也就是长度翻倍，如5,5就会变成10
 torch.cat([t, t], 0)
+# 沿着一个新维度拼接tensor，维度会加1，如5,5就会变成2x5，若是3x3 stack 3x3 dim=1，则会是3X2X3m，dim=2，则会是3X3X3
+torch.stack([t, t], 0)
 
 # 随机产生一个一个1x2维的tensor，值满足0-1间的正态分布 ，requires_grad要求梯度
 x = torch.randn(size=(1, 2), requires_grad=True)
@@ -62,7 +64,7 @@ u = y.detach()
 
 # 生成多项分布，如这里可以看成有3个格子对应三种颜色的球,有一个无限大的球堆每种颜色的球占三分之一，每次抽样抽取5个放入对应格子
 d = multinomial.Multinomial(5, (torch.ones([3])) / 3)
-# 抽样2次，结果如[[4., 0., 1.], [1., 3., 1.]]，入参要是size类型
+# 从分布里抽样2次，结果如[[4., 0., 1.], [1., 3., 1.]]，入参要是size类型
 d.sample(torch.Size((2,)))
 # 从均值为0，标准差为1的正态分布进行抽样，这里抽取了10x5=50个样本组成了10x5的矩阵
 torch.normal(0, 1, (10, 5))
@@ -145,6 +147,14 @@ nn.Flatten()
 nn.LazyLinear(256)
 # 函数化的relu
 F.relu(torch.tensor(1))
+# 卷积层，输入输出通道数都是1，卷积核形状是1x2，不使用偏置，步幅为1，不填充
+nn.Conv2d(1, 1, kernel_size=(1, 2), bias=False, stride=(1, 1), padding=0)
+# 最大池化层，保留区域内的最大特征，输入仍然保持原先维度
+nn.MaxPool2d(3, stride=(1, 1), padding=0)
+# 平均池化层，保留区域内特征的均值
+nn.AvgPool2d(3, stride=(1, 1), padding=0)
+# 自适应平均池化层，给出池化后的输出形状，会根据输入自适应地计算核的大小和每次移动的步长
+nn.AdaptiveAvgPool2d((1, 1))
 
 # 保存张量
 torch.save([torch.arange(4), torch.arange(5)], 'test_data/x-file')

@@ -1,3 +1,4 @@
+"""多项式回归，把每项预处理后就成了线性回归问题，这里通过使用选取不同的特征，展现了特征太少则欠拟合模型，特征太多则过拟合模型"""
 import math
 import numpy as np
 import torch
