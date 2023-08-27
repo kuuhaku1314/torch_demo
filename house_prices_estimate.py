@@ -7,6 +7,7 @@ from torch import nn
 
 
 def get_k_fold_data(k, i, X, y):
+    """把数据分成K折，把第i折作为验证集，剩下折拼在一起"""
     assert k > 1
     fold_size = X.shape[0] // k
     X_train, y_train, X_valid, y_valid = None, None, None, None
@@ -26,7 +27,7 @@ def get_k_fold_data(k, i, X, y):
 def train():
     train_data = pd.read_csv(d2l.download('kaggle_house_train'))
     test_data = pd.read_csv(d2l.download('kaggle_house_test'))
-    # 去除无用的id列和训练集中的price标签
+    # 去除无用的id列和训练集中的SalePrice标签
     all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
     # 获取数字类型的列的索引
     numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
@@ -35,24 +36,26 @@ def train():
         lambda x: (x - x.mean()) / (x.std()))
     # 填充数字列Na的值为0
     all_features[numeric_features] = all_features[numeric_features].fillna(0)
-    # “Dummy_na=True”将“na”（缺失值）视为有效的特征值，并为其创建指⽰符特征，对Object这些列扩充为独热向量
+    # “Dummy_na=True”会把“na”(缺失值)视为有效的特征值，也就是说会当成一种分类，并为其创建特征列，对Object这些列扩充为独热向量
     all_features = pd.get_dummies(all_features, dummy_na=True)
+    # 获取样本数
     n_train = train_data.shape[0]
     # numpy数组转为tensor
-    train_features = torch.tensor(all_features[:n_train].values.astype(float), dtype=torch.float32, device='cuda')
-    test_features = torch.tensor(all_features[n_train:].values.astype(float), dtype=torch.float32, device='cuda')
+    train_features = torch.tensor(all_features[:n_train].values.astype(float), dtype=torch.float32, device=d2l.try_gpu())
+    test_features = torch.tensor(all_features[n_train:].values.astype(float), dtype=torch.float32, device=d2l.try_gpu())
     # 获取训练数据标签
     train_labels = torch.tensor(
-        train_data.SalePrice.values.reshape(-1, 1), dtype=torch.float32, device='cuda')
+        train_data.SalePrice.values.reshape(-1, 1), dtype=torch.float32, device=d2l.try_gpu())
     loss = nn.MSELoss()
+    # 获取特征数量
     in_features = train_features.shape[1]
 
     def get_net():
-        net = nn.Sequential(nn.Linear(in_features, 1)).cuda()
+        net = nn.Sequential(nn.Linear(in_features, 1)).to(device=d2l.try_gpu())
         return net
 
     def log_rmse(net, features, labels):
-        # 为了在取对数时进⼀步稳定该值，将小于1的值设置为1
+        # 为了在取对数时进一步稳定该值，将小于1的值设置为1
         clipped_preds = torch.clamp(net(features), 1, float('inf'))
         rmse = torch.sqrt(loss(torch.log(clipped_preds),
                                torch.log(labels)))
@@ -62,8 +65,8 @@ def train():
                num_epochs, learning_rate, weight_decay, batch_size):
         train_ls, test_ls = [], []
         train_iter = d2l.load_array((train_features, train_labels), batch_size)
-        # 这⾥使⽤的是Adam优化算法
-        optimizer = torch.optim.Adam(net.parameters(),
+        # 这里使⽤的是AdamW优化算法，Adam+weight_decay并不有效
+        optimizer = torch.optim.AdamW(net.parameters(),
                                      lr=learning_rate,
                                      weight_decay=weight_decay)
         for epoch in range(num_epochs):
@@ -85,6 +88,7 @@ def train():
             net = get_net()
             train_ls, valid_ls = _train(net, *data, num_epochs, learning_rate,
                                         weight_decay, batch_size)
+            # 取每轮最后一次训练误差
             train_l_sum += train_ls[-1]
             valid_l_sum += valid_ls[-1]
             if i == 0:
@@ -95,7 +99,7 @@ def train():
                   f'验证log rmse{float(valid_ls[-1]):f}')
         return train_l_sum / k, valid_l_sum / k
 
-    k, num_epochs, lr, weight_decay, batch_size = 5, 100, 5, 0, 64
+    k, num_epochs, lr, weight_decay, batch_size = 5, 400, 5, 0, 64
     train_l, valid_l = k_fold(k, train_features, train_labels, num_epochs, lr,
                               weight_decay, batch_size)
     print(f'{k}-折验证: 平均训练log rmse: {float(train_l):f}, '
@@ -111,7 +115,7 @@ def train():
         d2l.plot(np.arange(1, num_epochs + 1), [train_ls], xlabel='epoch',
                  ylabel='log rmse', xlim=[1, num_epochs], yscale='log')
         print(f'训练log rmse：{float(train_ls[-1]):f}')
-        # 将⽹络应⽤于测试集。
+        # 将网络应⽤于测试集。
         preds = net(test_features).detach().cpu().numpy()
         # 将其重新格式化以导出到Kaggle
         test_data['SalePrice'] = pd.Series(preds.reshape(1, -1)[0])

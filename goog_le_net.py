@@ -5,7 +5,7 @@ import d2l
 from torch.nn import functional as F
 
 
-# 用同个输入使用不同的卷积核获取通道特征再合并
+# 用同个输入使用不同的卷积核获取通道特征再合并，也就是说，不同的通道组用的卷积核架构是不一样的
 class Inception(nn.Module):
     # c1--c4是每条路径的输出通道数
     def __init__(self, in_channels, c1, c2, c3, c4, **kwargs):

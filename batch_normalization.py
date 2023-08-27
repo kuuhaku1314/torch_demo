@@ -1,4 +1,4 @@
-"""BN批量规范化通过对每一层的输出进行批量归一化，可以加快收敛速度"""
+"""BN批量规范化通过对每一层的输出进行批量归一化，可以加快收敛速度，一般放在卷积/全连接层和激活层之间"""
 import torch
 from torch import nn
 import d2l
@@ -16,7 +16,7 @@ def batch_norm(X, gamma, beta, moving_mean, moving_var, eps, momentum):
             mean = X.mean(dim=0)
             var = ((X - mean) ** 2).mean(dim=0)
         else:
-            # 使用二维卷积层的情况，计算通道维上（axis=1）的均值和方差。
+            # 使用二维卷积层的情况，计算通道维上(axis=1)的均值和方差。
             # 这里我们需要保持X的形状以便后面可以做广播运算
             mean = X.mean(dim=(0, 2, 3), keepdim=True)
             var = ((X - mean) ** 2).mean(dim=(0, 2, 3), keepdim=True)
@@ -38,7 +38,7 @@ class BatchNorm(nn.Module):
             shape = (1, num_features)
         else:
             shape = (1, num_features, 1, 1)
-        # 参与求梯度和迭代的拉伸和偏移参数，分别初始化成1和0
+        # 参与求梯度和迭代的拉伸和偏移参数，分别初始化成1和0，可以用来恢复归一化后权重的特征
         self.gamma = nn.Parameter(torch.ones(shape))
         self.beta = nn.Parameter(torch.zeros(shape))
         # 非模型参数的变量初始化为0和1

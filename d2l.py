@@ -1,19 +1,22 @@
 """工具包"""
 import matplotlib
 from matplotlib import pyplot as plt
-import time
 import numpy as np
 import torch
-from torch.utils import data
 import torchvision
 from torchvision import transforms
+from torch.utils import data
+from torch import nn
+from torch.nn import functional as F
+import time
 import hashlib
 import os
 import tarfile
 import zipfile
 import requests
-from torch import nn
-from torch.nn import functional as F
+import re
+import collections
+import random
 
 matplotlib.use("TkAgg")
 
@@ -45,7 +48,7 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
     set_figsize(figsize)
     axes = axes if axes else plt.gca()
 
-    # 如果X有⼀个轴，输出True
+    # 如果X有一个轴，输出True
     def has_one_axis(X):
         return (hasattr(X, "ndim") and X.ndim == 1 or isinstance(X, list)
                 and not hasattr(X[0], "__len__"))
@@ -69,7 +72,7 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
 
 
 class Timer:  # @save
-    """记录多次运⾏时间"""
+    """记录多次运行时间"""
 
     def __init__(self):
         self.times = []
@@ -98,7 +101,7 @@ class Timer:  # @save
 
 
 def synthetic_data(w, b, num_examples):
-    """⽣成y=Xw+b+噪声"""
+    """生成y=Xw+b+噪声"""
     X = torch.normal(0, 1, (num_examples, len(w)))
     y = torch.matmul(X, w) + b
     y += torch.normal(0, 0.01, y.shape)
@@ -116,7 +119,7 @@ def squared_loss(y_hat, y):
 
 
 def sgd(params, lr, batch_size):  #
-    """⼩批量随机梯度下降"""
+    """小批量随机梯度下降"""
     with torch.no_grad():
         for param in params:
             # 注意-=的方式才是在原变量之上更新，=的方式是new一个新变量，和外部变量无关
@@ -125,7 +128,7 @@ def sgd(params, lr, batch_size):  #
 
 
 def load_array(data_arrays, batch_size, is_train=True):
-    """构造⼀个PyTorch数据迭代器"""
+    """构造一个PyTorch数据迭代器"""
     dataset = data.TensorDataset(*data_arrays)
     return data.DataLoader(dataset, batch_size, shuffle=is_train)
 
@@ -184,6 +187,8 @@ def softmax(X):
 
 
 def cross_entropy(y_hat, y):
+    # 假设y_hat是256x10的矩阵， y是256的向量, 则y_hat[range(len(y_hat)), y]
+    # 会选择出所有正确结果的预测概率，即长度为256的概率向量，相当于i从0到255获取y_hat[i, y[i]]
     return - torch.log(y_hat[range(len(y_hat)), y])
 
 
@@ -224,7 +229,7 @@ def evaluate_accuracy(net, data_iter):  # @save
 
 
 def train_epoch_ch3(net, train_iter, loss, updater):
-    """训练模型⼀个迭代周期（定义⻅第3章）"""
+    """训练模型一个迭代周期(定义见第3章)"""
     # 将模型设置为训练模式，改变某些层的行为，比如Batch Normalization和Dropout，会让Dropout处于可用状态
     if isinstance(net, torch.nn.Module):
         net.train()
@@ -287,12 +292,12 @@ class Animator:
         self.config_axes()
 
 
-# net函数输入是小批次矩阵
+# net函数输入是小批次矩阵, 用于fashion mnist数据集
 # train_iter和test_iter返回都是小批次数据
 # loss 入参签名(y_hat, true y)
 # updater函数若是自定义，则参数是batch_size，因为自定义的loss计算梯度时先用sum聚合了每个sample的损失，在更新梯度时应除以batch_size
 def train_ch3(net, train_iter, test_iter, loss, num_epochs, updater):
-    """训练模型（定义⻅第3章）"""
+    """训练模型(定义见第3章)"""
     animator = Animator(xlabel='epoch', xlim=[1, num_epochs], ylim=[0.3, 0.9],
                         legend=['train loss', 'train acc', 'test acc'])
     train_metrics = None
@@ -307,8 +312,8 @@ def train_ch3(net, train_iter, test_iter, loss, num_epochs, updater):
     assert 1 >= test_acc > 0.7, test_acc
 
 
-def predict_ch3(net, test_iter, n=6):  # @save
-    """预测标签（定义⻅第3章）"""
+def predict_ch3(net, test_iter, n=6):
+    """预测标签(定义见第3章)"""
     X, y = None, None
     for _X, _y in test_iter:
         X, y = _X, _y
@@ -321,7 +326,7 @@ def predict_ch3(net, test_iter, n=6):  # @save
 
 
 def evaluate_loss(net, data_iter, loss):
-    """评估给定数据集上模型的损失"""
+    """评估给定数据集上模型的平均损失"""
     metric = Accumulator(2)  # 损失的总和,样本数量
     for X, y in data_iter:
         out = net(X)
@@ -339,10 +344,13 @@ DATA_HUB['kaggle_house_train'] = (
 DATA_HUB['kaggle_house_test'] = (
     DATA_URL + 'kaggle_house_pred_test.csv',
     'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
+DATA_HUB['time_machine'] = (
+    DATA_URL + 'timemachine.txt',
+    '090b5e7e70c295757f55df93cb0a180b9691891a')
 
 
 def download(name, cache_dir='data'):
-    """下载⼀个DATA_HUB中的⽂件，返回本地⽂件名"""
+    """下载一个DATA_HUB中的文件，返回本地文件名"""
     assert name in DATA_HUB, f"{name} 不存在于 {DATA_HUB}"
     url, sha1_hash = DATA_HUB[name]
     os.makedirs(cache_dir, exist_ok=True)
@@ -357,7 +365,7 @@ def download(name, cache_dir='data'):
                 sha1.update(data)
             if sha1.hexdigest() == sha1_hash:
                 return fname  # 命中缓存
-    print(f'正在从{url}下载{fname}...')
+    print(f'正在从 {url} 下载 {fname}...')
     r = requests.get(url, stream=True, verify=True)
     with open(fname, 'wb') as f:
         f.write(r.content)
@@ -365,7 +373,7 @@ def download(name, cache_dir='data'):
 
 
 def download_extract(name, folder=None):
-    """下载并解压zip/tar⽂件"""
+    """下载并解压zip/tar文件"""
     fname = download(name)
     base_dir = os.path.dirname(fname)
     data_dir, ext = os.path.splitext(fname)
@@ -374,15 +382,22 @@ def download_extract(name, folder=None):
     elif ext in ('.tar', '.gz'):
         fp = tarfile.open(fname, 'r')
     else:
-        assert False, '只有zip/tar⽂件可以被解压缩'
+        assert False, '只有zip/tar文件可以被解压缩'
     fp.extractall(base_dir)
     return os.path.join(base_dir, folder) if folder else data_dir
 
 
 def download_all():
-    """下载DATA_HUB中的所有⽂件"""
+    """下载DATA_HUB中的所有文件"""
     for name in DATA_HUB:
         download(name)
+
+
+def read_time_machine():
+    """将时间机器数据集加载到文本行的列表中"""
+    with open(download('time_machine'), 'r') as f:
+        lines = f.readlines()
+    return [re.sub('[^A-Za-z]+', ' ', line).strip().lower() for line in lines]
 
 
 def try_gpu(i=0):
@@ -393,14 +408,14 @@ def try_gpu(i=0):
 
 
 def try_all_gpus():
-    """返回所有可⽤的GPU，如果没有GPU，则返回[cpu(),]"""
+    """返回所有可用的GPU，如果没有GPU，则返回[cpu(),]"""
     devices = [torch.device(f'cuda:{i}')
                for i in range(torch.cuda.device_count())]
     return devices if devices else [torch.device('cpu')]
 
 
 def corr2d(X, K):
-    """计算⼆维互相关运算"""
+    """计算二维互相关运算"""
     h, w = K.shape
     Y = torch.zeros((X.shape[0] - h + 1, X.shape[1] - w + 1))
     for i in range(Y.shape[0]):
@@ -475,30 +490,38 @@ def train_ch6(net, train_iter, test_iter, num_epochs, lr, device):
 
 
 def print_net(net, X):
+    print()
+    print(f'{str("INPUT:"):<20} {str(X.shape):>35}')
+    print('-' * 55)
+
     def _print_net(_net):
         nonlocal X
         for blk in _net:
-            if blk.__class__.__name__ == "Sequential":
+            if blk.__class__.__name__ == 'Sequential':
+                print('-' * 55)
                 _print_net(blk)
-                print()
+                print('-' * 55)
             else:
                 X = blk(X)
-                print(blk.__class__.__name__, 'output shape:\t', X.shape)
+                print(f'{blk.__class__.__name__:<20} {str(X.shape) + "¦":>35}')
 
     _print_net(net)
+    print('-' * 55)
+    print(f'{str("OUTPUT:"):<20} {str(X.shape):>35}')
+    print()
 
 
 class Residual(nn.Module):
-    def __init__(self, input_channels, num_channels,
-                 use_1x1conv=False, strides=1):
+    def __init__(self, input_channels, num_channels, strides=1):
         super().__init__()
         self.conv1 = nn.Conv2d(input_channels, num_channels,
-                               kernel_size=(3, 3), padding=1, stride=(strides, strides))
+                               kernel_size=(3, 3), padding=1, stride=strides)
         self.conv2 = nn.Conv2d(num_channels, num_channels,
                                kernel_size=(3, 3), padding=1)
-        if use_1x1conv:
+        if input_channels != num_channels:
+            # 若输入和输出通道数不同，需要使用1x1卷积核进行通道数的转换
             self.conv3 = nn.Conv2d(input_channels, num_channels,
-                                   kernel_size=(1, 1), stride=(strides, strides))
+                                   kernel_size=(1, 1), stride=strides)
         else:
             self.conv3 = None
         self.bn1 = nn.BatchNorm2d(num_channels)
@@ -511,4 +534,137 @@ class Residual(nn.Module):
             X = self.conv3(X)
         # 直接加X，当conv1和conv2权重为0时，残差层输出Y=输入X，不会改变输入
         Y += X
+        # 这里relu后不用加BN层，因为当不改变输出时，对X不能使用BN层转化
         return F.relu(Y)
+
+
+def tokenize(lines, token='word'):
+    """将文本行拆分为单词或字符词元"""
+    if token == 'word':
+        return [line.split() for line in lines]
+    elif token == 'char':
+        return [list(line) for line in lines]
+    else:
+        print('错误：未知词元类型：' + token)
+
+
+class Vocab:
+    """文本词表"""
+
+    def __init__(self, tokens=None, min_freq=0, reserved_tokens=None):
+        if tokens is None:
+            tokens = []
+        if reserved_tokens is None:
+            reserved_tokens = []
+        # 按出现频率排序
+        counter = count_corpus(tokens)
+        self._token_freqs = sorted(counter.items(), key=lambda x: x[1],
+                                   reverse=True)
+        # 未知词元的索引为0
+        self.idx_to_token = ['<unk>'] + reserved_tokens
+        self.token_to_idx = {token: idx
+                             for idx, token in enumerate(self.idx_to_token)}
+        for token, freq in self._token_freqs:
+            if freq < min_freq:
+                break
+            if token not in self.token_to_idx:
+                self.idx_to_token.append(token)
+                self.token_to_idx[token] = len(self.idx_to_token) - 1
+
+    def __len__(self):
+        return len(self.idx_to_token)
+
+    def __getitem__(self, tokens):
+        if not isinstance(tokens, (list, tuple)):
+            return self.token_to_idx.get(tokens, self.unk)
+        return [self.__getitem__(token) for token in tokens]
+
+    def to_tokens(self, indices):
+        if not isinstance(indices, (list, tuple)):
+            return self.idx_to_token[indices]
+        return [self.idx_to_token[index] for index in indices]
+
+    @property
+    def unk(self):  # 未知词元的索引为0
+        return 0
+
+    @property
+    def token_freqs(self):
+        return self._token_freqs
+
+
+def count_corpus(tokens):
+    """统计词元的频率"""
+    # 这里的tokens是1D列表或2D列表
+    if len(tokens) == 0 or isinstance(tokens[0], list):
+        # 将词元列表展平成一个列表
+        tokens = [token for line in tokens for token in line]
+    return collections.Counter(tokens)
+
+
+def load_corpus_time_machine(max_tokens=-1):
+    """返回时光机器数据集的词元索引列表和词表"""
+    lines = read_time_machine()
+    tokens = tokenize(lines, 'char')
+    vocab = Vocab(tokens)
+    # 因为时光机器数据集中的每个文本行不一定是一个句子或一个段落，
+    # 所以将所有文本行展平到一个列表中
+    corpus = [vocab[token] for line in tokens for token in line]
+    if max_tokens > 0:
+        corpus = corpus[:max_tokens]
+    return corpus, vocab
+
+
+def seq_data_iter_random(corpus, batch_size, num_steps):
+    """使用随机抽样生成一个小批量子序列, num_steps是每个样本的时间步长度，batch_size是样本大小"""
+    # 从随机偏移量开始对序列进行分区，随机范围包括num_steps-1
+    corpus = corpus[random.randint(0, num_steps - 1):]
+    # 减去1，是因为我们需要考虑标签
+    num_subseqs = (len(corpus) - 1) // num_steps
+    # ⻓度为num_steps的子序列的起始索引
+    initial_indices = list(range(0, num_subseqs * num_steps, num_steps))
+    # 在随机抽样的迭代过程中，
+    # 来自两个相邻的、随机的、小批量中的子序列不一定在原始序列上相邻
+    random.shuffle(initial_indices)
+
+    def data(pos):
+        # 返回从pos位置开始的⻓度为num_steps的序列
+        return corpus[pos: pos + num_steps]
+
+    num_batches = num_subseqs // batch_size
+    for i in range(0, batch_size * num_batches, batch_size):
+        # 在这里，initial_indices包含子序列的随机起始索引
+        initial_indices_per_batch = initial_indices[i: i + batch_size]
+        X = [data(j) for j in initial_indices_per_batch]
+        Y = [data(j + 1) for j in initial_indices_per_batch]
+        yield torch.tensor(X), torch.tensor(Y)
+
+
+def seq_data_iter_sequential(corpus, batch_size, num_steps):
+    """使用顺序分区生成一个小批量子序列"""
+    # 从随机偏移量开始划分序列
+    offset = random.randint(0, num_steps)
+    num_tokens = ((len(corpus) - offset - 1) // batch_size) * batch_size
+    Xs = torch.tensor(corpus[offset: offset + num_tokens])
+    Ys = torch.tensor(corpus[offset + 1: offset + 1 + num_tokens])
+    Xs, Ys = Xs.reshape(batch_size, -1), Ys.reshape(batch_size, -1)
+    num_batches = Xs.shape[1] // num_steps
+    for i in range(0, num_steps * num_batches, num_steps):
+        X = Xs[:, i: i + num_steps]
+        Y = Ys[:, i: i + num_steps]
+        yield X, Y
+
+
+class SeqDataLoader:
+    """加载序列数据的迭代器"""
+
+    def __init__(self, batch_size, num_steps, use_random_iter, max_tokens):
+        if use_random_iter:
+            self.data_iter_fn = seq_data_iter_random
+        else:
+            self.data_iter_fn = seq_data_iter_sequential
+            self.corpus, self.vocab = load_corpus_time_machine(max_tokens)
+            self.batch_size, self.num_steps = batch_size, num_steps
+
+    def __iter__(self):
+        return self.data_iter_fn(self.corpus, self.batch_size, self.num_steps)

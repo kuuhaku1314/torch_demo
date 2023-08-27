@@ -1,5 +1,5 @@
 """DenseNet稠密网络利用可以将一个函数逐级展开x → [x, f1(x), f2([x, f1(x)]), f3([x, f1(x), f2([x, f1(x)])]), . . .]
-把每个展开项都作为稠密块里的一个并行块"""
+把每个展开项都作为稠密块里的一个并行块在输出上拼接，这样任意一层的输入都与前面所有层直接紧密相连"""
 import torch
 from torch import nn
 import d2l
@@ -23,7 +23,7 @@ class DenseBlock(nn.Module):
     def forward(self, X):
         for blk in self.net:
             Y = blk(X)
-            # 连接通道维度上每个块的输入和输出
+            # 连接通道维度上每个块的输入和输出，也就是加大了通道数
             X = torch.cat((X, Y), dim=1)
         return X
 
@@ -59,6 +59,7 @@ def train():
         nn.AdaptiveAvgPool2d((1, 1)),
         nn.Flatten(),
         nn.Linear(num_channels, 10))
+    d2l.print_net(net, torch.rand(size=(1, 1, 224, 224)))
     lr, num_epochs, batch_size = 0.1, 10, 256
     train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=96)
     d2l.train_ch6(net, train_iter, test_iter, num_epochs, lr, d2l.try_gpu())

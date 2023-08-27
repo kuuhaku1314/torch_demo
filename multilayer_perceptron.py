@@ -1,4 +1,4 @@
-"""使用多层组合成一个网络，网络的中间隐藏层也就是特征的中间表示，若都是线性层，则可以合并为单层网络"""
+"""使用多层组合成一个网络，网络的中间隐藏层也就是特征的中间表示，若都是线性层，可从公式上推出可全部线性层可合并为单层网络"""
 import torch
 from torch import nn
 import d2l
@@ -23,7 +23,7 @@ def train():
 
     def net(X):
         X = X.reshape((-1, num_inputs))
-        H = relu(X @ W1 + b1)  # 这⾥“@”代表矩阵乘法，python3.5后特性，需要实现__matmul__函数
+        H = relu(X @ W1 + b1)  # 这里“@”代表矩阵乘法，python3.5后特性，需要实现__matmul__函数
         return H @ W2 + b2
 
     loss = nn.CrossEntropyLoss(reduction='none')

@@ -9,7 +9,7 @@ import warnings
 
 warnings.filterwarnings("ignore")
 
-# 声明一个tensor
+# 声明一个tensor，张量的轴按照shape形状，从左到右从0开始递增，以索引访问也是如此，如tensor[0]访问的是第0个轴的索引为1的张量
 torch.tensor([1, 2])
 # 声明元素都为1的tensor，数据类型是float32
 torch.ones((10, 5), dtype=torch.float32)
@@ -25,7 +25,7 @@ torch.mm(torch.tensor([[1, 2], [3, 4]]), torch.tensor([[5], [6]]))
 torch.matmul(torch.tensor([5, 6]), torch.tensor([[1, 2], [3, 4]]))
 
 t = torch.tensor([1, 2, 3, 4, 5])
-# 每个元素求累计和，[1, 2, 3, 4, 5] -> [1, 3, 6, 10, 15]，dim 0是逐列，1是逐行，注意向量默认看成是列向量
+# 每个元素求累计和，[1, 2, 3, 4, 5] -> [1, 3, 6, 10, 15]，对矩阵来说dim 0是逐列，1是逐行
 t.cumsum(dim=0)
 # 求和，[1, 2, 3, 4, 5] -> 15
 t.sum()
@@ -94,7 +94,7 @@ torchvision.datasets.FashionMNIST(
 # 一个顺序流，相当于一个pipeline，第一层是平展化，第二层是一个输入为784，输出为10的线性层
 net = nn.Sequential(nn.Flatten(), nn.Linear(784, 10))
 # 对pipeline里的每个pipe施加一个函数作用
-net.apply(fn=lambda m: None)
+net.apply(fn=lambda k: None)
 net = nn.Sequential(nn.Linear(784, 10))
 # 用正态分布初始化权重
 net[0].weight.data.normal_(0, 0.01)
@@ -153,7 +153,7 @@ nn.Conv2d(1, 1, kernel_size=(1, 2), bias=False, stride=(1, 1), padding=0)
 nn.MaxPool2d(3, stride=(1, 1), padding=0)
 # 平均池化层，保留区域内特征的均值
 nn.AvgPool2d(3, stride=(1, 1), padding=0)
-# 自适应平均池化层，给出池化后的输出形状，会根据输入自适应地计算核的大小和每次移动的步长
+# 自适应平均池化层，给出池化后的输出形状，会根据输入自适应地计算核的大小和每次移动的步长，在这里把每个通道的hxw个像素聚合为1x1
 nn.AdaptiveAvgPool2d((1, 1))
 
 # 保存张量

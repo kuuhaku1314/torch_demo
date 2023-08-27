@@ -28,7 +28,7 @@ def train(wd):
     for epoch in range(num_epochs):
         for X, y in train_iter:
             # 增加了L2范数惩罚项，
-            # ⼴播机制使l2_penalty(w)成为⼀个⻓度为batch_size的向量
+            # 广播机制使l2_penalty(w)成为一个⻓度为batch_size的向量
             l = loss(net(X), y) + wd * l2_penalty(w)
             l.sum().backward()
             d2l.sgd([w, b], lr, batch_size)
@@ -36,7 +36,7 @@ def train(wd):
             animator.add(epoch + 1, (d2l.evaluate_loss(net, train_iter, loss),
                                      d2l.evaluate_loss(net, test_iter, loss)))
     d2l.plt.show()
-    print('w的L2范数是：', torch.norm(w).item())
+    print('w的L2范数是：', torch.linalg.norm(w).item())
 
     # 使用pytorch库实现
     net = nn.Sequential(nn.Linear(num_inputs, 1))

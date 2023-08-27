@@ -33,14 +33,14 @@ def train():
     sgd = d2l.sgd
     for epoch in range(num_epochs):
         for X, y in data_iter(batch_size, features, labels):
-            l = loss(net(X, w, b), y)  # X和y的⼩批量损失
-            # 因为l形状是(batch_size,1)，⽽不是⼀个标量。l中的所有元素被加到⼀起，
+            l = loss(net(X, w, b), y)  # X和y的小批量损失
+            # 因为l形状是(batch_size,1)，⽽不是一个标量。l中的所有元素被加到一起，
             # 并以此计算关于[w,b]的梯度
             l.sum().backward()
             sgd([w, b], lr, batch_size)  # 使⽤参数的梯度更新参数
         with torch.no_grad():
             train_l = loss(net(features, w, b), labels)
-        print(f'epoch {epoch + 1}, loss {float(train_l.mean()):f}')
+            print(f'epoch {epoch + 1}, loss {float(train_l.mean()):f}')
     print(f'w的估计误差: {true_w - w.reshape(true_w.shape).detach()}')
     print(f'b的估计误差: {true_b - b.detach()}')
 
@@ -52,10 +52,10 @@ def train():
     trainer = torch.optim.SGD(net.parameters(), lr=0.03)
     for epoch in range(num_epochs):
         for X, y in d2l.load_array([features, labels], batch_size, is_train=True):
-            # 计算损失
-            l = loss(net(X), y)
             # 上一轮梯度清空
             trainer.zero_grad()
+            # 计算损失
+            l = loss(net(X), y)
             # 反向传播
             l.backward()
             # 根据这一轮的梯度优化参数值

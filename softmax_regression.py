@@ -6,9 +6,9 @@ from torch import nn
 
 def train():
     batch_size = 256
-    # 数据集形状为(60000, 1) 含义分别为样本数量，图像或label
-    # 若是label 使用[0][1]获取分类，值为标签
-    # 若是图像，使用[0][0]获取图像，图像数据为2个维度，高度，宽度，值为灰度
+    # 数据集形状为(60000, 2) 含义分别为样本数量，图像或label
+    # 若要获取label 使用data[0][1]获取样本0的分类标签
+    # 若要获取图像，使用data[0][0]获取样本0的图像，图像形状为1x28x28数据为2个维度，高度，宽度，值为灰度
     train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=None)
     num_inputs = 784
     num_outputs = 10
@@ -16,7 +16,7 @@ def train():
     b = torch.zeros(num_outputs, requires_grad=True)
 
     def net(X):
-        # (1，784) X (784，10) + (10)
+        # (256，784) X (784，10) + (10) -> (256, 10)
         return d2l.softmax(torch.matmul(X.reshape((-1, W.shape[0])), W) + b)
 
     lr = 0.1
@@ -34,7 +34,7 @@ def train():
     # 使用pytorch库实现
     train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size)
     # PyTorch不会隐式地调整输⼊的形状。因此，
-    # 我们在线性层前定义了展平层（flatten），来调整⽹络输⼊的形状
+    # 我们在线性层前定义了展平层(flatten)，来调整网络输⼊的形状
     net = nn.Sequential(nn.Flatten(), nn.Linear(784, 10))
 
     def init_weights(m):

@@ -36,8 +36,7 @@ def vgg(conv_arch):
 def train():
     conv_arch = ((1, 64), (1, 128), (2, 256), (2, 512), (2, 512))
     net = vgg(conv_arch)
-    X = torch.randn(size=(1, 1, 224, 224))
-    d2l.print_net(net, X)
+    d2l.print_net(net, torch.randn(size=(1, 1, 224, 224)))
 
     ratio = 4
     small_conv_arch = [(pair[0], pair[1] // ratio) for pair in conv_arch]

@@ -10,8 +10,7 @@ def resnet_block(input_channels, num_channels, num_residuals,
     blk = []
     for i in range(num_residuals):
         if i == 0 and not first_block:
-            blk.append(d2l.Residual(input_channels, num_channels,
-                                    use_1x1conv=True, strides=2))
+            blk.append(d2l.Residual(input_channels, num_channels, strides=2))
         else:
             blk.append(d2l.Residual(num_channels, num_channels))
     return blk
