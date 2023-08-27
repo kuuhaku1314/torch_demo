@@ -1,22 +1,24 @@
 """工具包"""
+import collections
+import hashlib
+import math
+import os
+import random
+import re
+import tarfile
+import time
+import zipfile
+
 import matplotlib
-from matplotlib import pyplot as plt
 import numpy as np
+import requests
 import torch
 import torchvision
-from torchvision import transforms
-from torch.utils import data
+from matplotlib import pyplot as plt
 from torch import nn
 from torch.nn import functional as F
-import time
-import hashlib
-import os
-import tarfile
-import zipfile
-import requests
-import re
-import collections
-import random
+from torch.utils import data
+from torchvision import transforms
 
 matplotlib.use("TkAgg")
 
@@ -549,7 +551,8 @@ def tokenize(lines, token='word'):
 
 
 class Vocab:
-    """文本词表"""
+    """文本词表，包含了词元和索引的双向映射关系，以及每个词元的数量，用vocab[tokens]可获取词元索引,
+     len(vocab)获取所包含的词元长度，即28，其中索引0为未知词元，当获取不存在于词表内的词元索引时会返回0"""
 
     def __init__(self, tokens=None, min_freq=0, reserved_tokens=None):
         if tokens is None:
@@ -616,7 +619,8 @@ def load_corpus_time_machine(max_tokens=-1):
 
 
 def seq_data_iter_random(corpus, batch_size, num_steps):
-    """使用随机抽样生成一个小批量子序列, num_steps是每个样本的时间步长度，batch_size是样本大小"""
+    """使用随机抽样生成一个小批量子序列, num_steps是每个样本的时间步长度，batch_size是样本大小
+    返回形状是(batch_size X num_steps) 注意返回的标签是包含了下一个词元的时间序列"""
     # 从随机偏移量开始对序列进行分区，随机范围包括num_steps-1
     corpus = corpus[random.randint(0, num_steps - 1):]
     # 减去1，是因为我们需要考虑标签
@@ -641,8 +645,7 @@ def seq_data_iter_random(corpus, batch_size, num_steps):
 
 
 def seq_data_iter_sequential(corpus, batch_size, num_steps):
-    """使用顺序分区生成一个小批量子序列"""
-    # 从随机偏移量开始划分序列
+    """使用顺序分区生成一个小批量子序列，会以随机偏移量开始划分序列"""
     offset = random.randint(0, num_steps)
     num_tokens = ((len(corpus) - offset - 1) // batch_size) * batch_size
     Xs = torch.tensor(corpus[offset: offset + num_tokens])
@@ -668,3 +671,176 @@ class SeqDataLoader:
 
     def __iter__(self):
         return self.data_iter_fn(self.corpus, self.batch_size, self.num_steps)
+
+
+def load_data_time_machine(batch_size, num_steps,
+                           use_random_iter=False, max_tokens=10000):
+    """返回时光机器数据集的迭代器和词表"""
+    data_iter = SeqDataLoader(
+        batch_size, num_steps, use_random_iter, max_tokens)
+    return data_iter, data_iter.vocab
+
+
+class RNNModelScratch:
+    """从零开始实现的循环神经网络模型"""
+
+    def __init__(self, vocab_size, num_hiddens, device,
+                 get_params, init_state, forward_fn):
+        self.vocab_size, self.num_hiddens = vocab_size, num_hiddens
+        self.params = get_params(vocab_size, num_hiddens, device)
+        self.init_state, self.forward_fn = init_state, forward_fn
+
+    def __call__(self, X, state):
+        # 把整个词向量转为独热向量例如词表大小为5, 词向量为[0, 1]，则转换后为[[1, 0, 0, 0, 0],[0, 1, 0, 0, 0]]
+        # 形状是X = (批量数量，时间步), X.T = (时间步, 批量数量)
+        # F.one_hot(X.T, self.vocab_size) = (时间步数量，批量大小，词表大小) ()
+        X = F.one_hot(X.T, self.vocab_size).type(torch.float32)
+        # 交给rnn处理
+        return self.forward_fn(X, state, self.params)
+
+    def begin_state(self, batch_size, device):
+        return self.init_state(batch_size, self.num_hiddens, device)
+
+
+def predict_ch8(prefix, num_preds, net, vocab, device):
+    """预测函数，给出前缀和预测的最大字符数量限制，通过模型在prefix后面生成新字符"""
+    # 初始化隐变量state
+    state = net.begin_state(batch_size=1, device=device)
+    outputs = [vocab[prefix[0]]]
+    # outputs列表里存储了当前的字符索引
+    get_input = lambda: torch.tensor([outputs[-1]], device=device).reshape((1, 1))
+    # 预热，这里先不管模型的预测结果，循环把prefix字符和当前最新的state输入模型，目的是构建整个前缀序列的隐变量state
+    for y in prefix[1:]:
+        _, state = net(get_input(), state)
+        outputs.append(vocab[y])
+    # 当隐变量构建完成，开始使用列表里最后一个字符去预测下一个字符，预测num_preds步
+    for _ in range(num_preds):
+        # y是预测结果向量，state是当前的隐变量，把当前隐变量和字符输入，获取预测结果向量和下一个隐变量
+        y, state = net(get_input(), state)
+        # 把概率最大的字符索引加入outputs列表
+        outputs.append(int(y.argmax(dim=1).reshape(1)))
+    # 把字符索引映射回字符，并拼接成字符串返回
+    return ''.join([vocab.idx_to_token[i] for i in outputs])
+
+
+def grad_clipping(net, theta):
+    """裁剪梯度，避免梯度爆炸"""
+    if isinstance(net, nn.Module):
+        params = [p for p in net.parameters() if p.requires_grad]
+    else:
+        params = net.params
+    # 取梯度的范数
+    norm = torch.sqrt(sum(torch.sum((p.grad ** 2)) for p in params))
+    # 若范数过大，裁剪梯度，可以增加模型稳定性，因为如果有小批量数据偏移标准很大，那么产生的梯度会被抑制
+    if norm > theta:
+        for param in params:
+            param.grad[:] *= theta / norm
+
+
+# @save
+def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
+    """训练网络一个迭代周期（定义见第8章）"""
+    state, timer = None, Timer()
+    metric = Accumulator(2)  # 训练损失之和,词元数量
+    # X=(32, 35), Y=(32, 35)
+    for X, Y in train_iter:
+        if state is None or use_random_iter:
+            # 在第一次迭代或使用随机抽样时初始化state
+            state = net.begin_state(batch_size=X.shape[0], device=device)
+        else:  # 在这里，需要学习的是参数w和b，隐变量state是由wb算来的，并不需要梯度信息
+            if isinstance(net, nn.Module) and not isinstance(state, tuple):
+                # state对于nn.GRU是个张量
+                state.detach_()
+            else:
+                # state对于nn.LSTM或对于我们从零开始实现的模型是个元组
+                for s in state:
+                    s.detach_()
+        # Y.T = (35X32) y = (1120), 注意，这里的y的排序是(32个时间步0, 32个时间步1... 32个时间步34)
+        y = Y.T.reshape(-1)
+        X, y = X.to(device), y.to(device)
+        # y_hat = (1120, 28), X = (32, 512)，注意，这里y_hat的列排序也是(32个时间步0, 32个时间步1... 32个时间步34)
+        y_hat, state = net(X, state)
+        # 用交叉熵计算损失，因为交叉熵在某种程度上与信息熵/(负对数似然估计)是等价的，而信息熵越大系统越混乱，推断正确的概率就越低
+        # 因此这里要尽可能降低交叉熵
+        l = loss(y_hat, y.long()).mean()
+        if isinstance(updater, torch.optim.Optimizer):
+            updater.zero_grad()
+            l.backward()
+            grad_clipping(net, 1)
+            updater.step()
+        else:
+            l.backward()
+            grad_clipping(net, 1)
+            # 因为已经调用了mean函数，batch_size设置为1，另外自定义的updater里会把梯度清0，因此这里不用清
+            updater(batch_size=1)
+        metric.add(l * y.numel(), y.numel())
+    return math.exp(metric[0] / metric[1]), metric[1] / timer.stop()
+
+
+def train_ch8(net, train_iter, vocab, lr, num_epochs, device,
+              use_random_iter=False):
+    """训练模型（定义见第8章）"""
+    loss = nn.CrossEntropyLoss()
+    animator = Animator(xlabel='epoch', ylabel='perplexity',
+                        legend=['train'], xlim=[10, num_epochs])
+    # 初始化
+    if isinstance(net, nn.Module):
+        updater = torch.optim.SGD(net.parameters(), lr)
+    else:
+        updater = lambda batch_size: sgd(net.params, lr, batch_size)
+    predict = lambda prefix: predict_ch8(prefix, 50, net, vocab, device)
+    # 训练和预测
+    ppl, speed = None, None
+    for epoch in range(num_epochs):
+        ppl, speed = train_epoch_ch8(
+            net, train_iter, loss, updater, device, use_random_iter)
+        if (epoch + 1) % 10 == 0:
+            print(predict('time traveller'))
+            animator.add(epoch + 1, [ppl])
+    print(f'困惑度 {ppl:.1f}, {speed:.1f} 词元/秒 {str(device)}')
+    print(predict('time traveller'))
+    print(predict('traveller'))
+
+
+# @save
+class RNNModel(nn.Module):
+    """循环神经网络模型"""
+
+    def __init__(self, rnn_layer, vocab_size, **kwargs):
+        super(RNNModel, self).__init__(**kwargs)
+        self.rnn = rnn_layer
+        self.vocab_size = vocab_size
+        self.num_hiddens = self.rnn.hidden_size
+        # 如果RNN是双向的（之后将介绍），num_directions应该是2，否则应该是1
+        if not self.rnn.bidirectional:
+            self.num_directions = 1
+            self.linear = nn.Linear(self.num_hiddens, self.vocab_size)
+        else:
+            self.num_directions = 2
+            self.linear = nn.Linear(self.num_hiddens * 2, self.vocab_size)
+
+    def forward(self, inputs, state):
+        X = F.one_hot(inputs.T.long(), self.vocab_size)
+        X = X.to(torch.float32)
+        Y, state = self.rnn(X, state)
+        # 全连接层首先将Y的形状改为(时间步数*批量大小,隐藏单元数)
+        # 它的输出形状是(时间步数*批量大小,词表大小)。
+        output = self.linear(Y.reshape((-1, Y.shape[-1])))
+        return output, state
+
+    def begin_state(self, device, batch_size=1):
+        if not isinstance(self.rnn, nn.LSTM):
+            # nn.GRU以张量作为隐状态
+            return torch.zeros((self.num_directions * self.rnn.num_layers,
+                                batch_size, self.num_hiddens),
+                               device=device)
+        else:
+            # nn.LSTM以元组作为隐状态
+            return (
+                torch.zeros((
+                    self.num_directions * self.rnn.num_layers,
+                    batch_size, self.num_hiddens), device=device),
+                torch.zeros((
+                    self.num_directions * self.rnn.num_layers,
+                    batch_size, self.num_hiddens), device=device)
+            )
