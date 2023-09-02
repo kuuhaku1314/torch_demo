@@ -22,6 +22,21 @@ from torchvision import transforms
 
 matplotlib.use("TkAgg")
 
+DATA_HUB = dict()
+DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
+DATA_HUB['kaggle_house_train'] = (
+    DATA_URL + 'kaggle_house_pred_train.csv',
+    '585e9cc93e70b39160e7921475f9bcd7d31219ce')
+DATA_HUB['kaggle_house_test'] = (
+    DATA_URL + 'kaggle_house_pred_test.csv',
+    'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
+DATA_HUB['time_machine'] = (
+    DATA_URL + 'timemachine.txt',
+    '090b5e7e70c295757f55df93cb0a180b9691891a')
+DATA_HUB['fra-eng'] = (
+    DATA_URL + 'fra-eng.zip',
+    '94646ad1522d915e7b0f9296181140edcf86a4f5')
+
 
 def set_figsize(figsize=(3.5, 2.5)):
     """设置matplotlib的图表大小"""
@@ -70,7 +85,6 @@ def plot(X, Y=None, xlabel=None, ylabel=None, legend=None, xlim=None,
         else:
             axes.plot(y, fmt)
     set_axes(axes, xlabel, ylabel, xlim, ylim, xscale, yscale, legend)
-    plt.show()
 
 
 class Timer:  # @save
@@ -338,19 +352,6 @@ def evaluate_loss(net, data_iter, loss):
     return metric[0] / metric[1]
 
 
-DATA_HUB = dict()
-DATA_URL = 'http://d2l-data.s3-accelerate.amazonaws.com/'
-DATA_HUB['kaggle_house_train'] = (
-    DATA_URL + 'kaggle_house_pred_train.csv',
-    '585e9cc93e70b39160e7921475f9bcd7d31219ce')
-DATA_HUB['kaggle_house_test'] = (
-    DATA_URL + 'kaggle_house_pred_test.csv',
-    'fa19780a7b011d9b009e8bff8e99922a8ee2eb90')
-DATA_HUB['time_machine'] = (
-    DATA_URL + 'timemachine.txt',
-    '090b5e7e70c295757f55df93cb0a180b9691891a')
-
-
 def download(name, cache_dir='data'):
     """下载一个DATA_HUB中的文件，返回本地文件名"""
     assert name in DATA_HUB, f"{name} 不存在于 {DATA_HUB}"
@@ -552,7 +553,7 @@ def tokenize(lines, token='word'):
 
 class Vocab:
     """文本词表，包含了词元和索引的双向映射关系，以及每个词元的数量，用vocab[tokens]可获取词元索引,
-     len(vocab)获取所包含的词元长度，即28，其中索引0为未知词元，当获取不存在于词表内的词元索引时会返回0"""
+     len(vocab)获取所包含的词元长度，其中索引0为未知词元，当获取不存在于词表内的词元索引时会返回0"""
 
     def __init__(self, tokens=None, min_freq=0, reserved_tokens=None):
         if tokens is None:
@@ -693,7 +694,7 @@ class RNNModelScratch:
     def __call__(self, X, state):
         # 把整个词向量转为独热向量例如词表大小为5, 词向量为[0, 1]，则转换后为[[1, 0, 0, 0, 0],[0, 1, 0, 0, 0]]
         # 形状是X = (批量数量，时间步), X.T = (时间步, 批量数量)
-        # F.one_hot(X.T, self.vocab_size) = (时间步数量，批量大小，词表大小) ()
+        # F.one_hot(X.T, self.vocab_size) = (时间步数量，批量大小，词表大小)
         X = F.one_hot(X.T, self.vocab_size).type(torch.float32)
         # 交给rnn处理
         return self.forward_fn(X, state, self.params)
@@ -704,18 +705,18 @@ class RNNModelScratch:
 
 def predict_ch8(prefix, num_preds, net, vocab, device):
     """预测函数，给出前缀和预测的最大字符数量限制，通过模型在prefix后面生成新字符"""
-    # 初始化隐变量state
+    # 初始化隐状态state
     state = net.begin_state(batch_size=1, device=device)
     outputs = [vocab[prefix[0]]]
     # outputs列表里存储了当前的字符索引
     get_input = lambda: torch.tensor([outputs[-1]], device=device).reshape((1, 1))
-    # 预热，这里先不管模型的预测结果，循环把prefix字符和当前最新的state输入模型，目的是构建整个前缀序列的隐变量state
+    # 预热，这里先不管模型的预测结果，循环把prefix字符和当前最新的state输入模型，目的是构建整个前缀序列的隐状态state
     for y in prefix[1:]:
         _, state = net(get_input(), state)
         outputs.append(vocab[y])
-    # 当隐变量构建完成，开始使用列表里最后一个字符去预测下一个字符，预测num_preds步
+    # 当隐状态构建完成，开始使用列表里最后一个字符去预测下一个字符，预测num_preds步
     for _ in range(num_preds):
-        # y是预测结果向量，state是当前的隐变量，把当前隐变量和字符输入，获取预测结果向量和下一个隐变量
+        # y是预测结果向量，state是当前的隐状态，把当前隐状态和字符输入，获取预测结果向量和下一个隐状态
         y, state = net(get_input(), state)
         # 把概率最大的字符索引加入outputs列表
         outputs.append(int(y.argmax(dim=1).reshape(1)))
@@ -745,9 +746,13 @@ def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
     # X=(32, 35), Y=(32, 35)
     for X, Y in train_iter:
         if state is None or use_random_iter:
-            # 在第一次迭代或使用随机抽样时初始化state
+            # 在第一次迭代或使用随机抽样时初始化state，因为若用随机抽样，则每批次序列之间是没有关联的，
+            # 不能使用上一批序列学习到的隐状态去推断下一批的状态
             state = net.begin_state(batch_size=X.shape[0], device=device)
-        else:  # 在这里，需要学习的是参数w和b，隐变量state是由wb算来的，并不需要梯度信息
+        else:
+            # 注意，state参数没有传入updater里，无法通过updater.zero_grad()方法清空梯度信息，所以需要在这里手动清空
+            # 调用backward()函数之前都要将梯度清零，因为如果梯度不清零，
+            # pytorch中会将上次计算的梯度和本次计算的梯度累加，那么梯度就不准了
             if isinstance(net, nn.Module) and not isinstance(state, tuple):
                 # state对于nn.GRU是个张量
                 state.detach_()
@@ -771,7 +776,7 @@ def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
         else:
             l.backward()
             grad_clipping(net, 1)
-            # 因为已经调用了mean函数，batch_size设置为1，另外自定义的updater里会把梯度清0，因此这里不用清
+            # 因为已经调用了mean函数，batch_size设置为1，另外自定义的updater里会把梯度清0，因此这里调用zero_grad
             updater(batch_size=1)
         metric.add(l * y.numel(), y.numel())
     return math.exp(metric[0] / metric[1]), metric[1] / timer.stop()
@@ -802,7 +807,6 @@ def train_ch8(net, train_iter, vocab, lr, num_epochs, device,
     print(predict('traveller'))
 
 
-# @save
 class RNNModel(nn.Module):
     """循环神经网络模型"""
 
@@ -825,17 +829,20 @@ class RNNModel(nn.Module):
         Y, state = self.rnn(X, state)
         # 全连接层首先将Y的形状改为(时间步数*批量大小,隐藏单元数)
         # 它的输出形状是(时间步数*批量大小,词表大小)。
+        # 这里的全连接层充当rnn层后的输出层的作用
         output = self.linear(Y.reshape((-1, Y.shape[-1])))
         return output, state
 
     def begin_state(self, device, batch_size=1):
+        # 若是使用双向，还需要翻倍的记忆元记录反向的隐状态更新，所以有self.num_directions * self.rnn.num_layers
+        # 每个rnn层都有一个隐状态
         if not isinstance(self.rnn, nn.LSTM):
             # nn.GRU以张量作为隐状态
             return torch.zeros((self.num_directions * self.rnn.num_layers,
                                 batch_size, self.num_hiddens),
                                device=device)
         else:
-            # nn.LSTM以元组作为隐状态
+            # nn.LSTM以元组作为隐状态，LSTM还需要一个候选记忆元所以返回两个
             return (
                 torch.zeros((
                     self.num_directions * self.rnn.num_layers,
@@ -844,3 +851,295 @@ class RNNModel(nn.Module):
                     self.num_directions * self.rnn.num_layers,
                     batch_size, self.num_hiddens), device=device)
             )
+
+
+def read_data_nmt():
+    """载入“英语－法语”数据集"""
+    data_dir = download_extract('fra-eng')
+    with open(os.path.join(data_dir, 'fra.txt'), 'r',
+              encoding='utf-8') as f:
+        return f.read()
+
+
+def preprocess_nmt(text):
+    """预处理“英语－法语”数据集"""
+
+    def no_space(char, prev_char):
+        return char in set(',.!?') and prev_char != ' '
+
+    # 使用空格替换不间断空格
+    # 使用小写字母替换大写字母
+    text = text.replace('\u202f', ' ').replace('\xa0', ' ').lower()
+    # 在单词和标点符号之间插入空格
+    out = [' ' + char if i > 0 and no_space(char, text[i - 1]) else char
+           for i, char in enumerate(text)]
+    return ''.join(out)
+
+
+def tokenize_nmt(text, num_examples=None):
+    """词元化“英语－法语”数据数据集"""
+    source, target = [], []
+    for i, line in enumerate(text.split('\n')):
+        if num_examples and i > num_examples:
+            break
+        parts = line.split('\t')
+        if len(parts) == 2:
+            source.append(parts[0].split(' '))
+            target.append(parts[1].split(' '))
+    return source, target
+
+
+def show_list_len_pair_hist(legend, xlabel, ylabel, xlist, ylist):
+    """绘制列表长度对的直方图"""
+    set_figsize()
+    _, _, patches = plt.hist(
+        [[len(l) for l in xlist], [len(l) for l in ylist]])
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    for patch in patches[1].patches:
+        patch.set_hatch('/')
+    plt.legend(legend)
+
+
+def truncate_pad(line, num_steps, padding_token):
+    """截断或填充文本序列"""
+    if len(line) > num_steps:
+        return line[:num_steps]  # 截断
+    return line + [padding_token] * (num_steps - len(line))  # 填充
+
+
+def build_array_nmt(lines, vocab, num_steps):
+    """将机器翻译的文本序列转换成小批量, 返回序列和对应的有效词元长度"""
+    # 每一行的词元索引序列
+    lines = [vocab[l] for l in lines]
+    # 在每行词元索引序列后面加上结束符号索引
+    lines = [l + [vocab['<eos>']] for l in lines]
+    # 截断或填充
+    array = torch.tensor([truncate_pad(
+        l, num_steps, vocab['<pad>']) for l in lines])
+    # 除去填充符<pad>外有效词元的长度
+    valid_len = (array != vocab['<pad>']).type(torch.int32).sum(1)
+    return array, valid_len
+
+
+def load_data_nmt(batch_size, num_steps, num_examples=600):
+    """返回翻译数据集的迭代器和词表"""
+    text = preprocess_nmt(read_data_nmt())
+    source, target = tokenize_nmt(text, num_examples)
+    src_vocab = Vocab(source, min_freq=2,
+                      reserved_tokens=['<pad>', '<bos>', '<eos>'])
+    tgt_vocab = Vocab(target, min_freq=2,
+                      reserved_tokens=['<pad>', '<bos>', '<eos>'])
+    src_array, src_valid_len = build_array_nmt(source, src_vocab, num_steps)
+    tgt_array, tgt_valid_len = build_array_nmt(target, tgt_vocab, num_steps)
+    data_arrays = (src_array, src_valid_len, tgt_array, tgt_valid_len)
+    data_iter = load_array(data_arrays, batch_size)
+    return data_iter, src_vocab, tgt_vocab
+
+
+class Encoder(nn.Module):
+    """编码器-解码器架构的基本编码器接口"""
+
+    def __init__(self, **kwargs):
+        super(Encoder, self).__init__(**kwargs)
+
+    def forward(self, X, *args):
+        raise NotImplementedError
+
+
+class Decoder(nn.Module):
+    """编码器-解码器架构的基本解码器接口"""
+
+    def __init__(self, **kwargs):
+        super(Decoder, self).__init__(**kwargs)
+
+    def init_state(self, enc_outputs, *args):
+        raise NotImplementedError
+
+    def forward(self, X, state):
+        raise NotImplementedError
+
+
+class EncoderDecoder(nn.Module):
+    """编码器-解码器架构的基类"""
+
+    def __init__(self, encoder, decoder, **kwargs):
+        super(EncoderDecoder, self).__init__(**kwargs)
+        self.encoder = encoder
+        self.decoder = decoder
+
+    def forward(self, enc_X, dec_X, *args):
+        enc_outputs = self.encoder(enc_X, *args)
+        dec_state = self.decoder.init_state(enc_outputs, *args)
+        return self.decoder(dec_X, dec_state)
+
+
+class Seq2SeqEncoder(Encoder):
+    """用于序列到序列学习的循环神经网络编码器，把序列转为中间表示
+    (batch_size,num_steps) -> (num_steps,batch_size,num_hiddens)"""
+
+    def __init__(self, vocab_size, embed_size, num_hiddens, num_layers,
+                 dropout=0, **kwargs):
+        super(Seq2SeqEncoder, self).__init__(**kwargs)
+        # 嵌入层，输入是字典索引大小，输出是相应的单词嵌入，也就是单词转向量
+        self.embedding = nn.Embedding(vocab_size, embed_size)
+        self.rnn = nn.GRU(embed_size, num_hiddens, num_layers,
+                          dropout=dropout)
+
+    def forward(self, X, *args):
+        # 输入形状(batch_size,num_steps)
+        # 输出'X'的形状：(batch_size,num_steps,embed_size)
+        X = self.embedding(X)
+        # 在循环神经网络模型中，第一个轴对应于时间步，轴交换
+        X = X.permute(1, 0, 2)
+        # 用了GRU，输入被转为中间表示
+        output, state = self.rnn(X)
+        # output的形状:(num_steps,batch_size,num_hiddens)
+        # state的形状:(num_layers,batch_size,num_hiddens)
+        return output, state
+
+
+def sequence_mask(X, valid_len, value=0):
+    """在序列中屏蔽不相关的项"""
+    # X形状(batch_size,num_steps)
+    # valid_len的形状：(batch_size,)
+    # 获取轴1的大小，此处是num_steps
+    max_len = X.size(1)
+    # [None, :]升维为(1, num_steps), valid_len[:, None]升维为(batch_size, 1)
+    mask = torch.arange(max_len, dtype=torch.float32,
+                        device=X.device)[None, :] < valid_len[:, None]
+    # mask形状[batch_size, num_steps]
+    X[~mask] = value
+    return X
+
+
+class MaskedSoftmaxCELoss(nn.CrossEntropyLoss):
+    """带遮蔽的softmax交叉熵损失函数"""
+
+    # pred的形状：(batch_size,num_steps,vocab_size)
+    # label的形状：(batch_size,num_steps)
+    # valid_len的形状：(batch_size,)
+
+    def forward(self, pred, label, valid_len):
+        weights = torch.ones_like(label)
+        weights = sequence_mask(weights, valid_len)
+        self.reduction = 'none'
+        unweighted_loss = super(MaskedSoftmaxCELoss, self).forward(
+            pred.permute(0, 2, 1), label)
+        # 清空屏蔽项的损失
+        weighted_loss = (unweighted_loss * weights).mean(dim=1)
+        return weighted_loss
+
+
+def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
+    """训练序列到序列模型"""
+
+    def xavier_init_weights(m):
+        if type(m) == nn.Linear:
+            nn.init.xavier_uniform_(m.weight)
+        if type(m) == nn.GRU:
+            for param in m._flat_weights_names:
+                if "weight" in param:
+                    nn.init.xavier_uniform_(m._parameters[param])
+
+    net.apply(xavier_init_weights)
+    net.to(device)
+    optimizer = torch.optim.Adam(net.parameters(), lr=lr)
+    loss = MaskedSoftmaxCELoss()
+    net.train()
+    animator = Animator(xlabel='epoch', ylabel='loss',
+                        xlim=[10, num_epochs])
+    timer, metric = None, None
+    for epoch in range(num_epochs):
+        timer = Timer()
+        metric = Accumulator(2)  # 训练损失总和，词元数量
+        for batch in data_iter:
+            optimizer.zero_grad()
+            X, X_valid_len, Y, Y_valid_len = [x.to(device) for x in batch]
+            bos = torch.tensor([tgt_vocab['<bos>']] * Y.shape[0],
+                               device=device).reshape(-1, 1)
+            # 原始序列拼接上<bos>输入解码器
+            dec_input = torch.cat([bos, Y[:, :-1]], 1)  # 强制教学
+            # X_valid_len实际没用上
+            Y_hat, _ = net(X, dec_input, X_valid_len)
+            # Y_valid_len用来计算损失时屏蔽无关项
+            l = loss(Y_hat, Y, Y_valid_len)
+            l.sum().backward()  # 损失函数的标量进行“反向传播”
+            grad_clipping(net, 1)
+            num_tokens = Y_valid_len.sum()
+            optimizer.step()
+            with torch.no_grad():
+                metric.add(l.sum(), num_tokens)
+        if (epoch + 1) % 10 == 0:
+            animator.add(epoch + 1, (metric[0] / metric[1],))
+    print(f'loss {metric[0] / metric[1]:.3f}, {metric[1] / timer.stop():.1f} '
+          f'tokens/sec on {str(device)}')
+
+
+def predict_seq2seq(net, src_sentence, src_vocab, tgt_vocab, num_steps,
+                    device, save_attention_weights=False):
+    """序列到序列模型的预测"""
+    # 在预测时将net设置为评估模式
+    net.eval()
+    src_tokens = src_vocab[src_sentence.lower().split(' ')] + [
+        src_vocab['<eos>']]
+    enc_valid_len = torch.tensor([len(src_tokens)], device=device)
+    src_tokens = truncate_pad(src_tokens, num_steps, src_vocab['<pad>'])
+    # 添加批量轴
+    enc_X = torch.unsqueeze(
+        torch.tensor(src_tokens, dtype=torch.long, device=device), dim=0)
+    enc_outputs = net.encoder(enc_X, enc_valid_len)
+    dec_state = net.decoder.init_state(enc_outputs, enc_valid_len)
+    # 添加批量轴
+    dec_X = torch.unsqueeze(torch.tensor(
+        [tgt_vocab['<bos>']], dtype=torch.long, device=device), dim=0)
+    output_seq, attention_weight_seq = [], []
+    for _ in range(num_steps):
+        Y, dec_state = net.decoder(dec_X, dec_state)
+        # 我们使用具有预测最高可能性的词元，作为解码器在下一时间步的输入
+        dec_X = Y.argmax(dim=2)
+        pred = dec_X.squeeze(dim=0).type(torch.int32).item()
+        # 保存注意力权重（稍后讨论）
+        if save_attention_weights:
+            attention_weight_seq.append(net.decoder.attention_weights)
+        # 一旦序列结束词元被预测，输出序列的生成就完成了
+        if pred == tgt_vocab['<eos>']:
+            break
+        output_seq.append(pred)
+    return ' '.join(tgt_vocab.to_tokens(output_seq)), attention_weight_seq
+
+
+def bleu(pred_seq, label_seq, k):
+    """计算BLEU"""
+    pred_tokens, label_tokens = pred_seq.split(' '), label_seq.split(' ')
+    len_pred, len_label = len(pred_tokens), len(label_tokens)
+    score = math.exp(min(0., 1 - len_label / len_pred))
+    for n in range(1, k + 1):
+        num_matches, label_subs = 0, collections.defaultdict(int)
+        for i in range(len_label - n + 1):
+            label_subs[' '.join(label_tokens[i: i + n])] += 1
+        for i in range(len_pred - n + 1):
+            if label_subs[' '.join(pred_tokens[i: i + n])] > 0:
+                num_matches += 1
+                label_subs[' '.join(pred_tokens[i: i + n])] -= 1
+        score *= math.pow(num_matches / (len_pred - n + 1), math.pow(0.5, n))
+    return score
+
+
+def show_heatmaps(matrices, xlabel, ylabel, titles=None, figsize=(2.5, 2.5),
+                  cmap='Reds'):
+    """显示矩阵热图"""
+    num_rows, num_cols = matrices.shape[0], matrices.shape[1]
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize,
+                             sharex=True, sharey=True, squeeze=False)
+    pcm = None
+    for i, (row_axes, row_matrices) in enumerate(zip(axes, matrices)):
+        for j, (ax, matrix) in enumerate(zip(row_axes, row_matrices)):
+            pcm = ax.imshow(matrix.numpy(), cmap=cmap)
+            if i == num_rows - 1:
+                ax.set_xlabel(xlabel)
+            if j == 0:
+                ax.set_ylabel(ylabel)
+            if titles:
+                ax.set_title(titles[j])
+    fig.colorbar(pcm, ax=axes, shrink=0.6)

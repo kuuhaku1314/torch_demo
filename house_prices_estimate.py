@@ -95,6 +95,7 @@ def train():
                 d2l.plot(list(range(1, num_epochs + 1)), [train_ls, valid_ls],
                          xlabel='epoch', ylabel='rmse', xlim=[1, num_epochs],
                          legend=['train', 'valid'], yscale='log')
+                d2l.plt.show()
             print(f'折{i + 1}，训练log rmse{float(train_ls[-1]):f}, '
                   f'验证log rmse{float(valid_ls[-1]):f}')
         return train_l_sum / k, valid_l_sum / k
@@ -124,6 +125,7 @@ def train():
 
     train_and_pred(train_features, test_features, train_labels, test_data,
                    num_epochs, lr, weight_decay, batch_size)
+    d2l.plt.show()
 
 
 if __name__ == '__main__':

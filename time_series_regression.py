@@ -58,6 +58,7 @@ def train():
              [x.detach().numpy(), onestep_preds.detach().numpy()], 'time',
              'x', legend=['data', '1-step preds'], xlim=[1, 1000],
              figsize=(6, 3))
+    d2l.plt.show()
 
     # 下面展示只有前半部分数据，通过模型预测后续数据的情况，也就是说，后续数据是通过预测出的数据进行预测
     multistep_preds = torch.zeros(T)
@@ -70,6 +71,7 @@ def train():
               multistep_preds[n_train + tau:].detach().numpy()], 'time',
              'x', legend=['data', '1-step preds', 'multistep preds'],
              xlim=[1, 1000], figsize=(6, 3))
+    d2l.plt.show()
 
     max_steps = 64
     features = torch.zeros((T - tau - max_steps + 1, tau + max_steps))
@@ -85,6 +87,7 @@ def train():
              [features[:, tau + i - 1].detach().numpy() for i in steps], 'time', 'x',
              legend=[f'{i}-step preds' for i in steps], xlim=[5, 1000],
              figsize=(6, 3))
+    d2l.plt.show()
 
 
 if __name__ == '__main__':

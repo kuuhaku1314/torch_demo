@@ -21,6 +21,8 @@ torch.dot(torch.tensor([1, 2]), torch.tensor([3, 4]))
 torch.mv(torch.tensor([[1, 2], [3, 4]]), torch.tensor([5, 6]))
 # 矩阵和矩阵的乘积，2x2 mm 2x1 -> 2x1
 torch.mm(torch.tensor([[1, 2], [3, 4]]), torch.tensor([[5], [6]]))
+# 批量执行n个矩阵和n个矩阵的乘积，1x2x2 mm 1x2x1 -> 1x2x1
+torch.bmm(torch.tensor([[[1, 2], [3, 4]]]), torch.tensor([[[5], [6]]]))
 # 根据参数类型相当于dot，mv，mm，另外存在一种vm情况，如 2 vm 2x2 -> 1x2 mm 2x2 -> 1x2 -> 2
 torch.matmul(torch.tensor([5, 6]), torch.tensor([[1, 2], [3, 4]]))
 
@@ -33,6 +35,8 @@ t.sum()
 t.numel()
 # 变换维度，5 -> 1x5，填入-1的位置会根据其他维度自动算出这个维度的大小
 t.reshape([-1, 5])
+# 重复，这里形状从5 -> 50
+t.repeat(10)
 # 返回tensor的numpy数组
 t.numpy()
 # 返回python标准数字表示，张量只能是标量
@@ -47,6 +51,14 @@ torch.sqrt(torch.ones((4, 9)))
 torch.cat([t, t], 0)
 # 沿着一个新维度拼接tensor，维度会加1，如5,5就会变成2x5，若是3x3 stack 3x3 dim=1，则会是3X2X3m，dim=2，则会是3X3X3
 torch.stack([t, t], 0)
+# 进行轴交换，由(4, 9, 1) -> (9, 1, 4)
+torch.permute(torch.ones((4, 9, 1)), (1, 2, 0))
+# 增加一个维度，(4) -> (4, 1)
+torch.unsqueeze(torch.ones((4,)), 1)
+# 减少一个维度，(4, 9, 1) -> (4, 9)
+torch.squeeze(torch.ones((4, 9, 1)), -1)
+# 张量展平为向量，重复n次
+torch.repeat_interleave(torch.ones((4, 9, 1)), 10)
 
 # 随机产生一个一个1x2维的tensor，值满足0-1间的正态分布 ，requires_grad要求梯度
 x = torch.randn(size=(1, 2), requires_grad=True)
