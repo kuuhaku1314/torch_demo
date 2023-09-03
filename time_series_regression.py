@@ -1,3 +1,4 @@
+"""时间序列回归，根据已知序列，预测下一个时间点的数据"""
 import torch
 from matplotlib import pyplot as plt
 import d2l

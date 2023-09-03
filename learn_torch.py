@@ -49,13 +49,13 @@ torch.log(torch.ones((4, 9)))
 torch.sqrt(torch.ones((4, 9)))
 # 在0维上拼接tensor，也就是长度翻倍，如5,5就会变成10
 torch.cat([t, t], 0)
-# 沿着一个新维度拼接tensor，维度会加1，如5,5就会变成2x5，若是3x3 stack 3x3 dim=1，则会是3X2X3m，dim=2，则会是3X3X3
+# 沿着一个新维度拼接tensor，维度会加1，如5,5就会变成2x5，若是3x3 stack 3x3 dim=1，则会是3X2X3，dim=2，则会是3X3X3
 torch.stack([t, t], 0)
 # 进行轴交换，由(4, 9, 1) -> (9, 1, 4)
 torch.permute(torch.ones((4, 9, 1)), (1, 2, 0))
 # 增加一个维度，(4) -> (4, 1)
 torch.unsqueeze(torch.ones((4,)), 1)
-# 减少一个维度，(4, 9, 1) -> (4, 9)
+# 减少一个维度，(4, 9, 1) -> (4, 9)，dim若为负数则是从最后一个维度倒数
 torch.squeeze(torch.ones((4, 9, 1)), -1)
 # 张量展平为向量，重复n次
 torch.repeat_interleave(torch.ones((4, 9, 1)), 10)

@@ -1,3 +1,4 @@
+"""rnn循环神经网络，循环意指有一个隐变量跟随整个训练过程变换迭代，rnn可以捕获序列的时间信息"""
 import d2l
 import torch
 from torch import nn

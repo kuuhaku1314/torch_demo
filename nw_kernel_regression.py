@@ -35,11 +35,12 @@ def train():
     # X_repeat的形状:(n_test,n_train),
     # 每一行都包含着相同的测试输入（例如：同样的查询）
     X_repeat = x_test.repeat_interleave(n_train).reshape((-1, n_train))
-    # x_train包含着键。attention_weights的形状：(n_test,n_train),
+    # x_train包含着键。attention_weights的形状：(n_test,n_train)，每行权重和为1
     # 每一行都包含着要在给定的每个查询的值（y_train）之间分配的注意力权重
     attention_weights = nn.functional.softmax(-(X_repeat - x_train) ** 2 / 2, dim=1)
-    # 通过高斯核卷积，给出的test_x离对应的train_x越近则获得越高的注意力，也就是权重越高
+    # 通过高斯核对key-query建模，给出的test_x离对应的train_x越近则获得越高的注意力，也就是权重越高
     # y_hat的每个元素都是值的加权平均值，其中的权重是注意力权重
+    # 矩阵和向量的乘法，相当于x_test每一行和y_train的点积
     y_hat = torch.matmul(attention_weights, y_train)
     plot_kernel_reg(y_hat)
     d2l.plt.show()
@@ -70,10 +71,13 @@ def train():
     X_tile = x_train.repeat((n_train, 1))
     # Y_tile的形状:(n_train，n_train)，每一行都包含着相同的训练输出
     Y_tile = y_train.repeat((n_train, 1))
-    # keys的形状:(n_train，n_train-1)
+
+    # 任何一个训练样本的输入都会和除自己以外的所有训练样本的“键－值”对进行计算，应该是避免过拟合
+    # keys的形状:(n_train，n_train-1)，每行少了一个单位矩阵位置的值
     keys = X_tile[(1 - torch.eye(n_train)).type(torch.bool)].reshape((n_train, -1))
-    # values的形状:(n_train，n_train-1)
+    # values的形状:(n_train，n_train-1)，每行少了一个单位矩阵位置的值
     values = Y_tile[(1 - torch.eye(n_train)).type(torch.bool)].reshape((n_train, -1))
+
     net = NWKernelRegression()
     loss = nn.MSELoss(reduction='none')
     trainer = torch.optim.SGD(net.parameters(), lr=0.5)
