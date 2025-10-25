@@ -52,7 +52,8 @@ class BatchNorm(nn.Module):
             self.moving_mean = self.moving_mean.to(X.device)
             self.moving_var = self.moving_var.to(X.device)
         # 保存更新过的moving_mean和moving_var
-        # eps用来保证方差不为0，momentum是一个衰减值，每次均值和方差都是上次迭代结果和这次迭代结果的加权平均
+        # eps用来保证方差不为0，momentum=0.9表示保留90%的旧值，10%的新值
+        # 更新公式：moving_mean = 0.9 * moving_mean + 0.1 * current_mean
         Y, self.moving_mean, self.moving_var = batch_norm(
             X, self.gamma, self.beta, self.moving_mean,
             self.moving_var, eps=1e-5, momentum=0.9)

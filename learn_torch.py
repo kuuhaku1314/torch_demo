@@ -7,7 +7,7 @@ from torchvision import transforms
 from torch.nn import functional as F
 import warnings
 
-warnings.filterwarnings("ignore")
+warnings.filterwarnings('ignore')
 
 # 声明一个tensor，张量的轴按照shape形状，从左到右从0开始递增，以索引访问也是如此，如tensor[0]访问的是第0个轴的索引为1的张量
 torch.tensor([1, 2])
@@ -27,7 +27,7 @@ torch.bmm(torch.tensor([[[1, 2], [3, 4]]]), torch.tensor([[[5], [6]]]))
 torch.matmul(torch.tensor([5, 6]), torch.tensor([[1, 2], [3, 4]]))
 
 t = torch.tensor([1, 2, 3, 4, 5])
-# 每个元素求累计和，[1, 2, 3, 4, 5] -> [1, 3, 6, 10, 15]，对矩阵来说dim 0是逐列，1是逐行
+# 每个元素求累计和，[1, 2, 3, 4, 5] -> [1, 3, 6, 10, 15]，对矩阵来说dim 0是逐行叠加(每列从上往下sum)，1是逐列叠加(每行从左往右sum)
 t.cumsum(dim=0)
 # 求和，[1, 2, 3, 4, 5] -> 15
 t.sum()
@@ -136,8 +136,8 @@ net[1][1].weight.norm()
 
 # 小批量随机梯度下降，一种初始化方式，指明了权重w和偏置b，其中w的权重衰退惩罚率为0.1
 torch.optim.SGD([
-    {"params": net[0].weight, 'weight_decay': 0.1},
-    {"params": net[0].bias}], lr=0.1)
+    {'params': net[0].weight, 'weight_decay': 0.1},
+    {'params': net[0].bias}], lr=0.1)
 # 简化的声明方式把每层的权重和偏置平铺成数组返回, 如[W1, B1, W2, B2]
 torch.optim.SGD(net.parameters(), lr=0.1)
 # 另一种声明方式
@@ -149,7 +149,7 @@ torch.relu(torch.tensor([-1, 1]))
 torch.sigmoid(torch.tensor([-1, 1]))
 # 作用于每一个元素，返回(1 - 2exp(-i)) / (1 + 2exp(-i))，输出区间为[-1, 1]
 torch.tanh(torch.tensor([-1, 1]))
-# 裁剪值从1-inf，也就是说，小于1的值就直接变为1
+# 将张量的值裁剪到[1, inf)区间，小于1的值变为1，大于inf的值变为inf（实际上不会有大于inf的值）
 torch.clamp(torch.tensor([-1, 1]), 1, float('inf'))
 # relu层
 nn.ReLU()
@@ -180,7 +180,7 @@ nn.Linear(5, 3).load_state_dict(torch.load('test_data/mlp.params'))
 model = nn.Sequential(nn.Flatten(), nn.Linear(2, 1), nn.ReLU())
 # 保存整个神经网络架构和参数
 torch.save(model, 'test_data/model.pt')
-m = torch.load('test_data/model.pt')
+m = torch.load('test_data/model.pt', weights_only=False)
 
 # 获取显卡数量
 torch.cuda.device_count()

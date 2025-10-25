@@ -9,8 +9,8 @@ b = np.arange(2)
 # 给0-2位置索引元素赋值
 b[0:2] = a[0]
 # 若是向量dot向量，则是向量点积得到标量，
-# 若是向量dot矩阵，则会把向量提升为矩阵后再降维，比如20 dot 20x10 -> 1x20 dot 20x10 = 10，和pytorch matmul表现一致
-# 若是矩阵dot矩阵，执行矩阵乘法，如5x3 dot 5x3 -> 5x3
+# 若是向量dot矩阵，则会把向量提升为矩阵后再降维，比如20 dot 20x10 -> 1x20 dot 20x10 -> 1x10 -> 10，和pytorch matmul表现一致
+# 若是矩阵dot矩阵，执行矩阵乘法，如5x3 dot 3x5 -> 5x5
 np.dot(a, b)
 # 矩阵转置
 np.transpose(a)

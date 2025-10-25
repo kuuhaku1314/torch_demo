@@ -7,6 +7,7 @@ import random
 import re
 import tarfile
 import time
+import warnings
 import zipfile
 
 import matplotlib
@@ -17,9 +18,11 @@ import torchvision
 from matplotlib import pyplot as plt
 from torch import nn
 from torch.nn import functional as F
-from torch.utils import data
+from torch.utils import data as datautil
 from torchvision import transforms
 
+# 忽略 libpng 的 iCCP sRGB 配置文件警告（不影响功能）
+warnings.filterwarnings("ignore", message=".*iCCP.*")
 matplotlib.use("TkAgg")
 
 DATA_HUB = dict()
@@ -145,8 +148,8 @@ def sgd(params, lr, batch_size):  #
 
 def load_array(data_arrays, batch_size, is_train=True):
     """构造一个PyTorch数据迭代器"""
-    dataset = data.TensorDataset(*data_arrays)
-    return data.DataLoader(dataset, batch_size, shuffle=is_train)
+    dataset = datautil.TensorDataset(*data_arrays)
+    return datautil.DataLoader(dataset, batch_size, shuffle=is_train)
 
 
 def get_fashion_mnist_labels(labels):
@@ -190,10 +193,10 @@ def load_data_fashion_mnist(batch_size, resize=None):
         root="data", train=True, transform=trans, download=True)
     mnist_test = torchvision.datasets.FashionMNIST(
         root="data", train=False, transform=trans, download=True)
-    return (data.DataLoader(mnist_train, batch_size, shuffle=True,
-                            num_workers=get_dataloader_workers()),
-            data.DataLoader(mnist_test, batch_size, shuffle=False,
-                            num_workers=get_dataloader_workers()))
+    return (datautil.DataLoader(mnist_train, batch_size, shuffle=True,
+                                num_workers=get_dataloader_workers()),
+            datautil.DataLoader(mnist_test, batch_size, shuffle=False,
+                                num_workers=get_dataloader_workers()))
 
 
 def softmax(X):
@@ -203,8 +206,10 @@ def softmax(X):
 
 
 def cross_entropy(y_hat, y):
-    # 假设y_hat是256x10的矩阵， y是256的向量, 则y_hat[range(len(y_hat)), y]
-    # 会选择出所有正确结果的预测概率，即长度为256的概率向量，相当于i从0到255获取y_hat[i, y[i]]
+    # 注意：y_hat应该是经过softmax后的概率分布
+    # 假设y_hat是256x10的概率矩阵， y是256的标签向量
+    # y_hat[range(len(y_hat)), y]会选择出所有正确类别的预测概率
+    # 返回负对数似然，即长度为256的损失向量
     return - torch.log(y_hat[range(len(y_hat)), y])
 
 
@@ -223,7 +228,8 @@ class Accumulator:
         self.data = [0.0] * n
 
     def add(self, *args):
-        self.data = [a + float(b) for a, b in zip(self.data, args)]
+        self.data = [a + float(b.detach() if isinstance(b, torch.Tensor) else b) 
+                     for a, b in zip(self.data, args)]
 
     def reset(self):
         self.data = [0.0] * len(self.data)
@@ -235,7 +241,7 @@ class Accumulator:
 def evaluate_accuracy(net, data_iter):  # @save
     """计算在指定数据集上模型的精度"""
     if isinstance(net, torch.nn.Module):
-        # 评估模式，改变某些层的行为，比如Batch Normalization和Dropout，这里会让Dropout处于无用状态
+        # 评估模式，改变某些层的行为，比如关闭Dropout和使用固定的BatchNorm统计量
         net.eval()
     metric = Accumulator(2)  # 正确预测数、预测总数
     with torch.no_grad():
@@ -667,8 +673,8 @@ class SeqDataLoader:
             self.data_iter_fn = seq_data_iter_random
         else:
             self.data_iter_fn = seq_data_iter_sequential
-            self.corpus, self.vocab = load_corpus_time_machine(max_tokens)
-            self.batch_size, self.num_steps = batch_size, num_steps
+        self.corpus, self.vocab = load_corpus_time_machine(max_tokens)
+        self.batch_size, self.num_steps = batch_size, num_steps
 
     def __iter__(self):
         return self.data_iter_fn(self.corpus, self.batch_size, self.num_steps)
@@ -1132,7 +1138,7 @@ def show_heatmaps(matrices, xlabel, ylabel, titles=None, figsize=(2.5, 2.5),
     """显示矩阵热图，输入应该是4维张量"""
     num_rows, num_cols = matrices.shape[0], matrices.shape[1]
     fig, axes = plt.subplots(num_rows, num_cols, figsize=figsize,
-                             sharex=True, sharey=True, squeeze=False)
+                             sharex='all', sharey='all', squeeze=False)
     pcm = None
     for i, (row_axes, row_matrices) in enumerate(zip(axes, matrices)):
         for j, (ax, matrix) in enumerate(zip(row_axes, row_matrices)):
@@ -1359,6 +1365,7 @@ class TransformerEncoder(Encoder):
                  num_hiddens, norm_shape, ffn_num_input, ffn_num_hiddens,
                  num_heads, num_layers, dropout, use_bias=False, **kwargs):
         super(TransformerEncoder, self).__init__(**kwargs)
+        self.attention_weights = None
         self.num_hiddens = num_hiddens
         self.embedding = nn.Embedding(vocab_size, num_hiddens)
         self.pos_encoding = PositionalEncoding(num_hiddens, dropout)

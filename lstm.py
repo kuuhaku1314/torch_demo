@@ -51,7 +51,9 @@ def train():
             H = O * torch.tanh(C)
             Y = (H @ W_hq) + b_q
             outputs.append(Y)
-        # 多返回了一个记忆元C，类似于gru里的候选隐状态C2, C_tilda则是H1，关系类似于H2 = RXC2+(1-R)H1
+        # 返回输出和状态(H, C)，其中C是记忆元(cell state)，H是隐状态(hidden state)
+        # C通过遗忘门F和输入门I更新：C = F * C_old + I * C_tilda
+        # H通过输出门O从C派生：H = O * tanh(C)
         return torch.cat(outputs, dim=0), (H, C)
 
     vocab_size, num_hiddens, device = len(vocab), 256, d2l.try_gpu()
