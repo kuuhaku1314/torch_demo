@@ -9,7 +9,7 @@ def train():
     # 加载数据
     batch_size, num_steps, device = 32, 35, d2l.try_gpu()
     train_iter, vocab = d2l.load_data_time_machine(batch_size, num_steps)
-    # 通过设置“bi-directive=True”来定义双向LSTM模型
+    # 通过设置“bidirectional=True”来定义双向LSTM模型
     vocab_size, num_hiddens, num_layers = len(vocab), 256, 2
     num_inputs = vocab_size
     lstm_layer = nn.LSTM(num_inputs, num_hiddens, num_layers, bidirectional=True)

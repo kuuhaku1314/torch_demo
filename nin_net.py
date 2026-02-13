@@ -28,7 +28,7 @@ def train():
         # 将四维的输出转成二维的输出，其形状为(批量大小,10)
         nn.Flatten())
     d2l.print_net(net, torch.rand(size=(1, 1, 224, 224)))
-    lr, num_epochs, batch_size = 0.01, 10, 128
+    lr, num_epochs, batch_size = 0.1, 10, 128
     train_iter, test_iter = d2l.load_data_fashion_mnist(batch_size, resize=224)
     d2l.train_ch6(net, train_iter, test_iter, num_epochs, lr, d2l.try_gpu())
     d2l.plt.show()

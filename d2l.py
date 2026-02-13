@@ -270,7 +270,7 @@ def train_epoch_ch3(net, train_iter, loss, updater):
             # 使⽤定制的优化器和损失函数
             l.sum().backward()
             updater(X.shape[0])
-        metric.add(float(l.sum()), accuracy(y_hat, y), y.numel())
+        metric.add(float(l.detach().sum()), accuracy(y_hat, y), y.numel())
     # 返回训练损失和训练精度
     return metric[0] / metric[2], metric[1] / metric[2]
 
@@ -769,7 +769,7 @@ def train_epoch_ch8(net, train_iter, loss, updater, device, use_random_iter):
         # Y.T = (35X32) y = (1120), 注意，这里的y的排序是(32个时间步0, 32个时间步1... 32个时间步34)
         y = Y.T.reshape(-1)
         X, y = X.to(device), y.to(device)
-        # y_hat = (1120, 28), X = (32, 512)，注意，这里y_hat的列排序也是(32个时间步0, 32个时间步1... 32个时间步34)
+        # y_hat = (1120, 28)，注意，这里y_hat的列排序也是(32个时间步0, 32个时间步1... 32个时间步34)
         y_hat, state = net(X, state)
         # 用交叉熵计算损失，因为交叉熵在某种程度上与信息熵/(负对数似然估计)是等价的，而信息熵越大系统越混乱，推断正确的概率就越低
         # 因此这里要尽可能降低交叉熵

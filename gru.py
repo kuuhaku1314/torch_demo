@@ -57,7 +57,7 @@ def train():
     d2l.train_ch8(model, train_iter, vocab, lr, num_epochs, device)
     d2l.plt.show()
 
-    # pytouch实现
+    # pytorch实现
     num_inputs = vocab_size
     gru_layer = nn.GRU(num_inputs, num_hiddens)
     model = d2l.RNNModel(gru_layer, len(vocab))

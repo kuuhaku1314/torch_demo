@@ -30,8 +30,8 @@ def batch_norm(X, gamma, beta, moving_mean, moving_var, eps, momentum):
 
 
 class BatchNorm(nn.Module):
-    # num_features：完全连接层的输出数量或卷积层的输出通道数。
-    # num_dims：2表示完全连接层，4表示卷积层
+    # num_features：全连接层的输出数量或卷积层的输出通道数。
+    # num_dims：2表示全连接层，4表示卷积层
     def __init__(self, num_features, num_dims):
         super().__init__()
         if num_dims == 2:

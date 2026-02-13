@@ -1,4 +1,4 @@
-"""LSTM类似GRU, 使用遗忘门，输入门，输出门来进行长短期记忆"""
+"""多层LSTM，通过堆叠多个LSTM层来增加模型的表达能力，每层LSTM使用遗忘门、输入门、输出门来进行长短期记忆"""
 from torch import nn
 import d2l
 

@@ -30,7 +30,7 @@ def train():
     # 去除无用的id列和训练集中的SalePrice标签
     all_features = pd.concat((train_data.iloc[:, 1:-1], test_data.iloc[:, 1:]))
     # 获取数字类型的列的索引
-    numeric_features = all_features.dtypes[all_features.dtypes != 'object'].index
+    numeric_features = all_features.select_dtypes(include=[np.number]).columns
     # 对所有数字列进行归一化
     all_features[numeric_features] = all_features[numeric_features].apply(
         lambda x: (x - x.mean()) / (x.std()))

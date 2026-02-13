@@ -4,7 +4,7 @@ import numpy as np
 a = np.array([[1, 2], [3, 4]])
 # 声明一个值为0，长度为100的ndarray数组
 np.zeros(100)
-# 声明一个长度为10的ndarray数组，第一个值为0
+# 声明一个长度为2的ndarray数组，第一个值为0
 b = np.arange(2)
 # 给0-2位置索引元素赋值
 b[0:2] = a[0]

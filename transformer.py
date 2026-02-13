@@ -81,7 +81,7 @@ class TransformerDecoder(d2l.AttentionDecoder):
             # 解码器自注意力权重
             self._attention_weights[0][
                 i] = blk.attention1.attention.attention_weights
-            # “编码器－解码器”自注意力权重
+            # “编码器－解码器”注意力权重
             self._attention_weights[1][
                 i] = blk.attention2.attention.attention_weights
         return self.dense(X), state

@@ -19,7 +19,7 @@ def data_iter(batch_size, features, labels):
 def train():
     true_w = torch.tensor([2, -3.4])
     true_b = 4.2
-    features, labels = d2l.synthetic_data(true_w, true_b, 1000)
+    features, labels = d2l.synthetic_data(true_w, true_b, 10000)
     d2l.set_figsize()
     d2l.plt.scatter(features[:, 1].detach().numpy(), labels.detach().numpy(), 1)
     d2l.plt.show()
@@ -27,7 +27,7 @@ def train():
     b = torch.zeros(1, requires_grad=True)
     batch_size = 100
     lr = 0.06
-    num_epochs = 5
+    num_epochs = 50
     net = d2l.linreg
     loss = d2l.squared_loss
     sgd = d2l.sgd

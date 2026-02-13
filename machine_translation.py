@@ -36,8 +36,8 @@ def train():
             # 输出'X'的形状：(num_steps,batch_size,embed_size)
             X = self.embedding(X).permute(1, 0, 2)
             # state形状为(num_layers,batch_size,num_hiddens),获取最后一个隐状态作为context
-            # 广播context，使其具有与X相同的num_steps，这里是在num_layers上重复batch_size次
-            # context形状为(num_steps,batch_size,embed_size)
+            # 广播context，使其具有与X相同的num_steps，这里是在时间步维度上重复num_steps次
+            # context形状为(num_steps,batch_size,num_hiddens)
             context = state[-1].repeat(X.shape[0], 1, 1)
             # 与输入的X在embed_size维度上拼接，扩展了词向量，也就是把隐状态作为了词向量的一部分
             X_and_context = torch.cat((X, context), 2)

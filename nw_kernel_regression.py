@@ -92,7 +92,7 @@ def train():
         animator.add(epoch + 1, float(l.sum()))
     # keys的形状:(n_test，n_train)，每一行包含着相同的训练输入（例如，相同的键）
     keys = x_train.repeat((n_test, 1))
-    # value的形状:(n_test，n_train)
+    # values的形状:(n_test，n_train)
     values = y_train.repeat((n_test, 1))
     y_hat = net(x_test, keys, values).unsqueeze(1).detach()
     plot_kernel_reg(y_hat)

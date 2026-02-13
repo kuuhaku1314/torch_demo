@@ -9,7 +9,7 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-# 声明一个tensor，张量的轴按照shape形状，从左到右从0开始递增，以索引访问也是如此，如tensor[0]访问的是第0个轴的索引为1的张量
+# 声明一个tensor，张量的轴按照shape形状，从左到右从0开始递增，以索引访问也是如此，如tensor[0]访问的是第0个轴的索引为0的张量
 torch.tensor([1, 2])
 # 声明元素都为1的tensor，数据类型是float32
 torch.ones((10, 5), dtype=torch.float32)
@@ -64,7 +64,7 @@ torch.repeat_interleave(torch.ones((4, 9, 1)), 10)
 x = torch.randn(size=(1, 2), requires_grad=True)
 # 由于x的requires_grad=True，y在计算后，会在内部保存计算图信息
 y = 2 * x
-# 向前进行梯度传播，也就是算出y的requires_grad=True自变量的grad，通过x.grad获取，这里x的梯度就是y对矩阵x的导数=[[2, 2]]
+# 反向进行梯度传播，也就是算出y的requires_grad=True自变量的grad，通过x.grad获取，这里x的梯度就是y对矩阵x的导数=[[2, 2]]
 # retain_graph表明反向传播后不丢弃计算图，若不加gradient参数只有当结果是标量才能使用
 y.sum().backward(retain_graph=True)
 # 清除计算后得到的x的梯度信息
@@ -147,7 +147,7 @@ torch.optim.SGD([net[0].weight, net[0].bias], lr=0.1)
 torch.relu(torch.tensor([-1, 1]))
 # 作用于每一个元素，返回1 / (1 + exp(-i))，输出区间为[0, 1]
 torch.sigmoid(torch.tensor([-1, 1]))
-# 作用于每一个元素，返回(1 - 2exp(-i)) / (1 + 2exp(-i))，输出区间为[-1, 1]
+# 作用于每一个元素，返回(1 - exp(-2i)) / (1 + exp(-2i))，输出区间为[-1, 1]
 torch.tanh(torch.tensor([-1, 1]))
 # 将张量的值裁剪到[1, inf)区间，小于1的值变为1，大于inf的值变为inf（实际上不会有大于inf的值）
 torch.clamp(torch.tensor([-1, 1]), 1, float('inf'))
